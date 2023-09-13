@@ -1,0 +1,9 @@
+# compiled output
+/dist
+/node_modules
+#custom
+.env
+firebase-admin-sdk.json
+.DS_Store
+imagestore.db
+```
