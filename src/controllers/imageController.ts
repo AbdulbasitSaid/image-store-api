@@ -5,7 +5,6 @@ import { selectFromDatabase, insertIntoDatabase, updateDatabase, deleteFromDatab
 import { ImageResponseData } from '../database/models/image';
 const { v4: uuidv4 } = require('uuid');
 
-export const db = setupDatabase();
 type ResponseMeta = {
 
     totalRecords: number,
@@ -35,7 +34,7 @@ export async function listImages(req: Request, res: Response) {
     pageConstraints.offset = (pageConstraints.page - 1) * pageConstraints.pageSize;
 
     let responseMeta: ResponseMeta = { totalRecords: 0, per_page: pageConstraints.pageSize, next_page: null, last_page: 1, prev_page: null, links: { self: '', next: '', prev: '', first: '', last: '' }, };
-    await selectFromDatabase('SELECT COUNT(*) as total FROM images', []).then((rows) => {
+    await selectFromDatabase('SELECT COUNT(*) as total FROM images', []).then((rows: any) => {
         responseMeta.totalRecords = rows[0].total;
         responseMeta.prev_page = pageConstraints.page > 1 ? pageConstraints.page - 1 : null;
         responseMeta.last_page = Math.ceil(responseMeta.totalRecords / pageConstraints.pageSize);
@@ -71,31 +70,33 @@ export async function createImage(req: Request, res: Response) {
 export async function getImageById(req: Request, res: Response) {
     // Logic for getting a single image by ID
     try {
-        const responseData = await selectFromDatabase('SELECT * FROM images WHERE id = ?', [req.params.id]);
+        const responseData: any = await selectFromDatabase('SELECT * FROM images WHERE id = ?', [req.params.id]);
         res.json({ data: responseData[0] });
-    } catch (error) {
+    } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 }
 
 export async function updateImageById(req: Request, res: Response) {
     // Logic for updating an image by ID
-    const { name, description, url, id } = req.body;
+    const { name, description, url } = req.body;
     if (!req.file) {
         return res.status(400).send('No file uploaded.');
     }
-    let oldUrl = await getImageById(req, res);
-    await editFromFirebase(oldUrl.url, req.file);
+    let oldUrl: any = await selectFromDatabase('SELECT * FROM images WHERE id = ?', [req.params.id]);
+    await editFromFirebase(oldUrl[0].url, req.file);
+    await updateDatabase('UPDATE images SET url = ?, name = ?, description = ? WHERE id = ?', [oldUrl[0].url, name, description, req.params.id]);
+    res.json({ message: 'Image updated', data: { url, name, description } });
 }
 
 export async function deleteImageById(req: Request, res: Response) {
     // Logic for deleting an image by ID
     try {
-        let row = await selectFromDatabase('SELECT * FROM images WHERE id = ?', [req.params.id]);
+        let row: any = await selectFromDatabase('SELECT * FROM images WHERE id = ?', [req.params.id]);
         await deleteFromDatabase('DELETE FROM images WHERE id = ?', [req.params.id]);
         await deleteFromFirebase(row[0].url);
         res.json({ message: 'Image deleted' });
-    } catch (error) {
+    } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 }

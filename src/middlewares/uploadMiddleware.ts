@@ -6,13 +6,17 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const serviceAccount = require("../../firebase-admin-sdk.json");
-
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
 });
 const bucket = admin.storage().bucket(`${process.env.GCLOUD_STORAGE_BUCKET}`);
 
-
+function getFileName(filename: string): string | null {
+    let patten = /o\/(.*?)\?/;
+    let FileName = filename.match(patten);
+    if (!FileName) return null;
+    return FileName[1];
+}
 export const upload = multer({
     storage: multer.memoryStorage(),
     limits: {
@@ -21,9 +25,7 @@ export const upload = multer({
 });
 export async function uploadToFirebase(file: Express.Multer.File, name: string): Promise<string> {
     return new Promise(async (resolve, reject) => {
-        // Logic to upload image to Firebase
-        console.log(name)
-        const blob = bucket.file(`images${name}`);
+        const blob = bucket.file(`${name}`);
         const blobStream = await blob.createWriteStream({
             metadata: { contentType: file.mimetype },
         });
@@ -41,22 +43,19 @@ export async function uploadToFirebase(file: Express.Multer.File, name: string):
     });
 }
 
+
 export async function deleteFromFirebase(url: string) {
-    const patten = /o\/(.*?)\?/;
-    const image = url.match(patten);
-    if (!image) return;
-    const file = bucket.file(`${image[1]}`);
+    const file = bucket.file(`${getFileName(url)}`);
     await file.delete();
 }
 
 export async function editFromFirebase(url: string, file: Express.Multer.File): Promise<string> {
     return new Promise(async (resolve, reject) => {
         // Logic to edit image from Firebase
-        let newUrl = '';
         try {
             await deleteFromFirebase(url);
-            newUrl = await uploadToFirebase(file,);
-            resolve(newUrl);
+            await uploadToFirebase(file, getFileName(url)!);
+            resolve(getFileName(url)!);
         } catch (error) {
             reject(`Unable to edit image, something went wrong: ${error}`);
         }
